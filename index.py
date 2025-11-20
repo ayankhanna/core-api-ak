@@ -13,7 +13,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime
 from api.config import settings
-from api.routers import tasks, auth, calendar, email, webhooks, cron
+from api.routers import tasks, auth, calendar, email, webhooks, cron, sync
 
 # Create FastAPI app - Vercel will auto-detect this
 app = FastAPI(
@@ -39,6 +39,7 @@ app.include_router(calendar.router)
 app.include_router(email.router)
 app.include_router(webhooks.router)
 app.include_router(cron.router)
+app.include_router(sync.router)
 
 @app.get("/")
 async def root():
