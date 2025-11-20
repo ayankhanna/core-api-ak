@@ -1,33 +1,58 @@
 """
-Vercel Serverless Function - Root Entry Point
-This file MUST be at the project root for Vercel to find it
+FastAPI application for Vercel
+Vercel auto-detects and deploys FastAPI apps at index.py
+NO vercel.json or Mangum needed!
 """
 import sys
 import os
 
-# Add current directory to path for imports
+# Add project root to path so we can import from api/ and lib/
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-try:
-    from fastapi import FastAPI
-    from mangum import Mangum
-    
-    app = FastAPI()
-    
-    @app.get("/")
-    def root():
-        return {"status": "ok", "message": "Minimal FastAPI works on Vercel!"}
-    
-    @app.get("/api/health")
-    def health():
-        return {"status": "healthy"}
-    
-    # Vercel handler
-    handler = Mangum(app, lifespan="off")
-    
-except Exception as e:
-    import traceback
-    print(f"ERROR: {e}", file=sys.stderr, flush=True)
-    traceback.print_exc(file=sys.stderr)
-    raise
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from datetime import datetime
+from api.config import settings
+from api.routers import tasks, auth, calendar, email
+
+# Create FastAPI app - Vercel will auto-detect this
+app = FastAPI(
+    title=settings.app_name,
+    description="FastAPI backend for the all-in-one productivity app",
+    version=settings.app_version,
+    debug=settings.debug
+)
+
+# CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.get_allowed_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Include routers
+app.include_router(auth.router)
+app.include_router(tasks.router)
+app.include_router(calendar.router)
+app.include_router(email.router)
+
+@app.get("/")
+async def root():
+    """Health check endpoint"""
+    return {
+        "status": "healthy",
+        "message": "Core Productivity API is running",
+        "version": settings.app_version
+    }
+
+@app.get("/api/health")
+async def health_check():
+    """Detailed health check"""
+    return {
+        "status": "healthy",
+        "service": "core-api",
+        "timestamp": datetime.utcnow().isoformat() + "Z"
+    }
 
