@@ -20,16 +20,21 @@ def get_supabase_client() -> Client:
     global _supabase_client
     
     if _supabase_client is None:
-        supabase_url = os.getenv(
-            'SUPABASE_URL', 
-            'https://ztnfztpquyvoipttozgz.supabase.co'
-        )
-        supabase_key = os.getenv(
-            'SUPABASE_ANON_KEY',
-            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp0bmZ6dHBxdXl2b2lwdHRvemd6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM1MjY3NzYsImV4cCI6MjA3OTEwMjc3Nn0.NT8D4xPzEPQFKa3UOJyoXJ060Kx1OTQYfn1I4exCGyM'
-        )
-        
-        _supabase_client = create_client(supabase_url, supabase_key)
+        try:
+            supabase_url = os.getenv(
+                'SUPABASE_URL', 
+                'https://ztnfztpquyvoipttozgz.supabase.co'
+            )
+            supabase_key = os.getenv(
+                'SUPABASE_ANON_KEY',
+                'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp0bmZ6dHBxdXl2b2lwdHRvemd6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM1MjY3NzYsImV4cCI6MjA3OTEwMjc3Nn0.NT8D4xPzEPQFKa3UOJyoXJ060Kx1OTQYfn1I4exCGyM'
+            )
+            
+            _supabase_client = create_client(supabase_url, supabase_key)
+        except Exception as e:
+            print(f"Error creating Supabase client: {e}")
+            # Return a minimal client that will fail gracefully on use
+            raise RuntimeError(f"Failed to initialize Supabase client: {e}")
     
     return _supabase_client
 
@@ -45,26 +50,45 @@ def get_authenticated_supabase_client(user_jwt: str) -> Client:
     Returns:
         Client: Supabase client authenticated as the user
     """
-    supabase_url = os.getenv(
-        'SUPABASE_URL', 
-        'https://ztnfztpquyvoipttozgz.supabase.co'
-    )
-    supabase_key = os.getenv(
-        'SUPABASE_ANON_KEY',
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp0bmZ6dHBxdXl2b2lwdHRvemd6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM1MjY3NzYsImV4cCI6MjA3OTEwMjc3Nn0.NT8D4xPzEPQFKa3UOJyoXJ060Kx1OTQYfn1I4exCGyM'
-    )
+    try:
+        supabase_url = os.getenv(
+            'SUPABASE_URL', 
+            'https://ztnfztpquyvoipttozgz.supabase.co'
+        )
+        supabase_key = os.getenv(
+            'SUPABASE_ANON_KEY',
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp0bmZ6dHBxdXl2b2lwdHRvemd6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM1MjY3NzYsImV4cCI6MjA3OTEwMjc3Nn0.NT8D4xPzEPQFKa3UOJyoXJ060Kx1OTQYfn1I4exCGyM'
+        )
+        
+        # Create client with user's JWT
+        client = create_client(supabase_url, supabase_key)
+        
+        # Set the user's access token for authenticated requests (for database queries with RLS)
+        # We only set the authorization header, not the full session
+        client.postgrest.auth(user_jwt)
+        
+        return client
+    except Exception as e:
+        print(f"Error creating authenticated Supabase client: {e}")
+        raise RuntimeError(f"Failed to initialize authenticated Supabase client: {e}")
+
+
+# Lazy-loaded module-level client for backward compatibility
+# This will only initialize when actually accessed, not at import time
+class _LazySupabaseClient:
+    """Lazy-loaded Supabase client that initializes on first access"""
+    _instance: Optional[Client] = None
     
-    # Create client with user's JWT
-    client = create_client(supabase_url, supabase_key)
+    def __getattr__(self, name):
+        if self._instance is None:
+            self._instance = get_supabase_client()
+        return getattr(self._instance, name)
     
-    # Set the user's access token for authenticated requests (for database queries with RLS)
-    # We only set the authorization header, not the full session
-    client.postgrest.auth(user_jwt)
-    
-    return client
+    def __call__(self, *args, **kwargs):
+        if self._instance is None:
+            self._instance = get_supabase_client()
+        return self._instance(*args, **kwargs)
 
 
-# Convenience alias for anon client
-supabase = get_supabase_client()
-
-
+# Create lazy client instance - safe to import, won't crash at import time
+supabase = _LazySupabaseClient()
