@@ -18,8 +18,19 @@ class Settings(BaseSettings):
         "http://localhost:3000",
         "http://localhost:3001",
         "http://localhost:5173",  # Vite dev server
-        "https://*.vercel.app",
     ]
+    
+    # Vercel deployments - set via environment variable
+    # e.g., ALLOWED_ORIGINS=https://yourapp.vercel.app,https://yourdomain.com
+    allowed_origins_env: str = ""
+    
+    @property
+    def get_allowed_origins(self) -> List[str]:
+        """Get combined allowed origins from defaults and environment"""
+        origins = self.allowed_origins.copy()
+        if self.allowed_origins_env:
+            origins.extend([o.strip() for o in self.allowed_origins_env.split(",")])
+        return origins
     
     # Supabase settings
     supabase_url: str = ""
