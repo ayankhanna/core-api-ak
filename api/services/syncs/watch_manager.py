@@ -487,3 +487,4 @@ def setup_watches_for_user(user_id: str, user_jwt: str) -> Dict[str, Any]:
     
     return results
 
+
