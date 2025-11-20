@@ -296,3 +296,281 @@ def sync_gmail_full(
         sync_since=since_date
     )
 
+
+def process_gmail_history(
+    user_id: str,
+    user_jwt: str,
+    start_history_id: str
+) -> Dict[str, Any]:
+    """
+    Process Gmail changes using the history API (much more efficient than full sync)
+    This is called when we receive a push notification from Google
+    
+    Args:
+        user_id: User's ID
+        user_jwt: User's Supabase JWT for authenticated requests
+        start_history_id: The historyId to start fetching changes from
+        
+    Returns:
+        Dict with sync results
+    """
+    auth_supabase = get_authenticated_supabase_client(user_jwt)
+    
+    # Get Gmail service
+    service, connection_id = get_gmail_service(user_id, user_jwt)
+    
+    if not service or not connection_id:
+        raise ValueError("No active Google connection found for user")
+    
+    try:
+        logger.info(f"📜 Processing Gmail history for user {user_id} from historyId {start_history_id}")
+        
+        # Fetch history changes
+        history_result = service.users().history().list(
+            userId='me',
+            startHistoryId=start_history_id,
+            historyTypes=['messageAdded', 'messageDeleted', 'labelAdded', 'labelRemoved']
+        ).execute()
+        
+        history_records = history_result.get('history', [])
+        new_history_id = history_result.get('historyId', start_history_id)
+        
+        if not history_records:
+            logger.info(f"ℹ️ No history changes found for user {user_id}")
+            return {
+                "message": "No changes to sync",
+                "status": "completed",
+                "user_id": user_id,
+                "new_emails": 0,
+                "updated_emails": 0,
+                "deleted_emails": 0,
+                "new_history_id": new_history_id
+            }
+        
+        logger.info(f"📊 Found {len(history_records)} history records")
+        
+        added_count = 0
+        updated_count = 0
+        deleted_count = 0
+        
+        # Process each history record
+        for record in history_records:
+            # Handle messages added
+            if 'messagesAdded' in record:
+                for msg_added in record['messagesAdded']:
+                    try:
+                        message = msg_added.get('message', {})
+                        message_id = message.get('id')
+                        
+                        # Fetch full message details
+                        full_msg = service.users().messages().get(
+                            userId='me',
+                            id=message_id,
+                            format='full'
+                        ).execute()
+                        
+                        # Parse and store (similar to regular sync)
+                        headers = parse_email_headers(full_msg.get('payload', {}).get('headers', []))
+                        body = decode_email_body(full_msg.get('payload', {}))
+                        
+                        thread_id = full_msg.get('threadId')
+                        snippet = full_msg.get('snippet', '')
+                        labels = full_msg.get('labelIds', [])
+                        internal_date = full_msg.get('internalDate')
+                        size_estimate = full_msg.get('sizeEstimate', 0)
+                        
+                        if internal_date:
+                            received_at = datetime.fromtimestamp(
+                                int(internal_date) / 1000,
+                                tz=timezone.utc
+                            ).isoformat()
+                        else:
+                            received_at = None
+                        
+                        is_unread = 'UNREAD' in labels
+                        is_starred = 'STARRED' in labels
+                        is_important = 'IMPORTANT' in labels
+                        is_draft = 'DRAFT' in labels
+                        
+                        attachments = get_attachment_info(full_msg.get('payload', {}))
+                        
+                        # Check if exists
+                        existing = auth_supabase.table('emails')\
+                            .select('id')\
+                            .eq('user_id', user_id)\
+                            .eq('external_id', message_id)\
+                            .execute()
+                        
+                        to_addresses = [addr.strip() for addr in headers.get('to', '').split(',')] if headers.get('to') else []
+                        cc_addresses = [addr.strip() for addr in headers.get('cc', '').split(',')] if headers.get('cc') else []
+                        
+                        email_data = {
+                            'user_id': user_id,
+                            'ext_connection_id': connection_id,
+                            'external_id': message_id,
+                            'thread_id': thread_id,
+                            'subject': headers.get('subject', '(No Subject)'),
+                            'from_address': headers.get('from', ''),
+                            'to_addresses': to_addresses,
+                            'cc_addresses': cc_addresses if cc_addresses else None,
+                            'body_text': body.get('plain', ''),
+                            'body_html': body.get('html', ''),
+                            'snippet': snippet,
+                            'labels': labels,
+                            'is_read': not is_unread,
+                            'is_starred': is_starred,
+                            'received_at': received_at,
+                            'metadata': {
+                                'is_important': is_important,
+                                'is_draft': is_draft,
+                                'size_estimate': size_estimate,
+                                'has_attachments': len(attachments) > 0,
+                                'attachments': attachments,
+                                'raw_item': full_msg
+                            },
+                            'synced_at': datetime.now(timezone.utc).isoformat()
+                        }
+                        
+                        if existing.data:
+                            auth_supabase.table('emails')\
+                                .update(email_data)\
+                                .eq('id', existing.data[0]['id'])\
+                                .execute()
+                            updated_count += 1
+                        else:
+                            auth_supabase.table('emails')\
+                                .insert(email_data)\
+                                .execute()
+                            added_count += 1
+                            
+                    except Exception as e:
+                        logger.error(f"❌ Error processing added message: {str(e)}")
+                        continue
+            
+            # Handle messages deleted
+            if 'messagesDeleted' in record:
+                for msg_deleted in record['messagesDeleted']:
+                    try:
+                        message = msg_deleted.get('message', {})
+                        message_id = message.get('id')
+                        
+                        # Mark as deleted or remove from database
+                        result = auth_supabase.table('emails')\
+                            .delete()\
+                            .eq('user_id', user_id)\
+                            .eq('external_id', message_id)\
+                            .execute()
+                        
+                        if result.data:
+                            deleted_count += 1
+                            
+                    except Exception as e:
+                        logger.error(f"❌ Error processing deleted message: {str(e)}")
+                        continue
+            
+            # Handle label changes
+            if 'labelsAdded' in record or 'labelsRemoved' in record:
+                # For label changes, we need to update the labels array
+                try:
+                    if 'labelsAdded' in record:
+                        for label_change in record['labelsAdded']:
+                            message_id = label_change.get('message', {}).get('id')
+                            label_ids = label_change.get('labelIds', [])
+                            
+                            # Get current email
+                            existing = auth_supabase.table('emails')\
+                                .select('labels')\
+                                .eq('user_id', user_id)\
+                                .eq('external_id', message_id)\
+                                .execute()
+                            
+                            if existing.data:
+                                current_labels = existing.data[0].get('labels', [])
+                                new_labels = list(set(current_labels + label_ids))
+                                
+                                # Update read/starred status based on labels
+                                is_read = 'UNREAD' not in new_labels
+                                is_starred = 'STARRED' in new_labels
+                                
+                                auth_supabase.table('emails')\
+                                    .update({
+                                        'labels': new_labels,
+                                        'is_read': is_read,
+                                        'is_starred': is_starred
+                                    })\
+                                    .eq('user_id', user_id)\
+                                    .eq('external_id', message_id)\
+                                    .execute()
+                                updated_count += 1
+                    
+                    if 'labelsRemoved' in record:
+                        for label_change in record['labelsRemoved']:
+                            message_id = label_change.get('message', {}).get('id')
+                            label_ids = label_change.get('labelIds', [])
+                            
+                            existing = auth_supabase.table('emails')\
+                                .select('labels')\
+                                .eq('user_id', user_id)\
+                                .eq('external_id', message_id)\
+                                .execute()
+                            
+                            if existing.data:
+                                current_labels = existing.data[0].get('labels', [])
+                                new_labels = [l for l in current_labels if l not in label_ids]
+                                
+                                is_read = 'UNREAD' not in new_labels
+                                is_starred = 'STARRED' in new_labels
+                                
+                                auth_supabase.table('emails')\
+                                    .update({
+                                        'labels': new_labels,
+                                        'is_read': is_read,
+                                        'is_starred': is_starred
+                                    })\
+                                    .eq('user_id', user_id)\
+                                    .eq('external_id', message_id)\
+                                    .execute()
+                                updated_count += 1
+                                
+                except Exception as e:
+                    logger.error(f"❌ Error processing label changes: {str(e)}")
+                    continue
+        
+        # Update last synced timestamp and history ID
+        auth_supabase.table('ext_connections')\
+            .update({'last_synced': datetime.now(timezone.utc).isoformat()})\
+            .eq('id', connection_id)\
+            .execute()
+        
+        # Update history ID in push subscription
+        auth_supabase.table('push_subscriptions')\
+            .update({
+                'history_id': new_history_id,
+                'last_notification_at': datetime.now(timezone.utc).isoformat()
+            })\
+            .eq('user_id', user_id)\
+            .eq('provider', 'gmail')\
+            .eq('is_active', True)\
+            .execute()
+        
+        logger.info(f"✅ History sync completed: {added_count} added, {updated_count} updated, {deleted_count} deleted")
+        
+        return {
+            "message": "History sync completed successfully",
+            "status": "completed",
+            "user_id": user_id,
+            "new_emails": added_count,
+            "updated_emails": updated_count,
+            "deleted_emails": deleted_count,
+            "new_history_id": new_history_id
+        }
+        
+    except HttpError as e:
+        logger.error(f"❌ Gmail API error during history sync: {str(e)}")
+        raise ValueError(f"Failed to sync Gmail history: {str(e)}")
+    except Exception as e:
+        logger.error(f"❌ Error syncing Gmail history: {str(e)}")
+        import traceback
+        logger.error(f"❌ Traceback: {traceback.format_exc()}")
+        raise ValueError(f"Gmail history sync failed: {str(e)}")
+

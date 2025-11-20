@@ -40,6 +40,15 @@ class Settings(BaseSettings):
     google_client_id: str = ""
     google_client_secret: str = ""
     
+    # Google Cloud Project settings (for push notifications)
+    google_project_id: str = ""
+    
+    # Webhook URLs (set in production)
+    webhook_base_url: str = "http://localhost:8000"  # Change to production URL
+    
+    # Cron job authentication
+    cron_secret: str = ""  # Secret for authenticating cron job requests
+    
     # Environment
     api_env: str = "development"
     
