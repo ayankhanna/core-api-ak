@@ -24,9 +24,16 @@ app = FastAPI(
 )
 
 # Configure CORS for Next.js frontend
+# Note: "https://*.vercel.app" patterns need to be handled with allow_origin_regex
+allowed_origins_list = [
+    origin for origin in settings.allowed_origins 
+    if not origin.startswith("https://*.vercel.app")
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"] if settings.allow_all_origins else settings.allowed_origins,
+    allow_origins=allowed_origins_list,
+    allow_origin_regex=r"https://.*\.vercel\.app",  # Handles *.vercel.app pattern
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
