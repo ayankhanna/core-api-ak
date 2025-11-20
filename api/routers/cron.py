@@ -62,7 +62,7 @@ def verify_cron_auth(authorization: Optional[str]) -> bool:
     return authorization == expected_auth
 
 
-@router.post("/incremental-sync")
+@router.get("/incremental-sync")
 async def cron_incremental_sync(authorization: str = Header(None)):
     """
     CRON JOB: Incremental sync for all active users
@@ -75,13 +75,21 @@ async def cron_incremental_sync(authorization: str = Header(None)):
     - Ensures no data is lost if webhooks fail
     
     This job processes users in batches to handle rate limits gracefully.
+    
+    NOTE: Uses GET because Vercel cron jobs send GET requests by default
     """
+    logger.info("=" * 80)
+    logger.info("🕐 CRON: Starting incremental sync for all users")
+    logger.info(f"⏰ Timestamp: {datetime.now(timezone.utc).isoformat()}")
+    logger.info(f"🔑 Authorization header present: {bool(authorization)}")
+    logger.info(f"🌍 Environment: {os.getenv('API_ENV', 'development')}")
+    
     # Verify authorization
     if not verify_cron_auth(authorization):
-        logger.warning("⚠️ Unauthorized cron attempt")
+        logger.warning("⚠️ Unauthorized cron attempt - authorization failed")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
     
-    logger.info("🕐 CRON: Starting incremental sync for all users")
+    logger.info("✅ Authorization verified")
     start_time = datetime.now(timezone.utc)
     
     try:
@@ -146,6 +154,7 @@ async def cron_incremental_sync(authorization: str = Header(None)):
         
         logger.info(f"✅ CRON: Incremental sync completed in {duration:.2f}s")
         logger.info(f"📊 Results: {success_count} success, {skipped_count} skipped, {error_count} errors")
+        logger.info("=" * 80)
         
         return {
             "status": "completed",
@@ -158,13 +167,15 @@ async def cron_incremental_sync(authorization: str = Header(None)):
         
     except Exception as e:
         logger.error(f"❌ CRON: Incremental sync failed: {str(e)}")
+        logger.exception("Full traceback:")
+        logger.info("=" * 80)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Sync failed: {str(e)}"
         )
 
 
-@router.post("/renew-watches")
+@router.get("/renew-watches")
 async def cron_renew_watches(authorization: str = Header(None)):
     """
     CRON JOB: Renew expiring watch subscriptions
@@ -178,13 +189,19 @@ async def cron_renew_watches(authorization: str = Header(None)):
     - Ensures continuous real-time notifications
     
     Without this job, push notifications will stop working after 7 days!
+    
+    NOTE: Uses GET because Vercel cron jobs send GET requests by default
     """
+    logger.info("=" * 80)
+    logger.info("🕐 CRON: Starting watch renewal check")
+    logger.info(f"⏰ Timestamp: {datetime.now(timezone.utc).isoformat()}")
+    
     # Verify authorization
     if not verify_cron_auth(authorization):
         logger.warning("⚠️ Unauthorized cron attempt")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
     
-    logger.info("🕐 CRON: Starting watch renewal check")
+    logger.info("✅ Authorization verified")
     start_time = datetime.now(timezone.utc)
     
     try:
@@ -229,6 +246,7 @@ async def cron_renew_watches(authorization: str = Header(None)):
         
         logger.info(f"✅ CRON: Watch renewal completed in {duration:.2f}s")
         logger.info(f"📊 Results: {renewed_count} renewed, {error_count} errors")
+        logger.info("=" * 80)
         
         return {
             "status": "completed",
@@ -240,13 +258,15 @@ async def cron_renew_watches(authorization: str = Header(None)):
         
     except Exception as e:
         logger.error(f"❌ CRON: Watch renewal failed: {str(e)}")
+        logger.exception("Full traceback:")
+        logger.info("=" * 80)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Watch renewal failed: {str(e)}"
         )
 
 
-@router.post("/setup-missing-watches")
+@router.get("/setup-missing-watches")
 async def cron_setup_missing_watches(authorization: str = Header(None)):
     """
     CRON JOB: Set up watches for users who don't have them
@@ -257,13 +277,19 @@ async def cron_setup_missing_watches(authorization: str = Header(None)):
     - Sets up watches for new users who just connected Google
     - Recovers from watch setup failures
     - Ensures no users are left without push notifications
+    
+    NOTE: Uses GET because Vercel cron jobs send GET requests by default
     """
+    logger.info("=" * 80)
+    logger.info("🕐 CRON: Checking for users without watches")
+    logger.info(f"⏰ Timestamp: {datetime.now(timezone.utc).isoformat()}")
+    
     # Verify authorization
     if not verify_cron_auth(authorization):
         logger.warning("⚠️ Unauthorized cron attempt")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
     
-    logger.info("🕐 CRON: Checking for users without watches")
+    logger.info("✅ Authorization verified")
     start_time = datetime.now(timezone.utc)
     
     try:
@@ -329,6 +355,7 @@ async def cron_setup_missing_watches(authorization: str = Header(None)):
         
         logger.info(f"✅ CRON: Watch setup check completed in {duration:.2f}s")
         logger.info(f"📊 Results: {setup_count} setups needed, {error_count} errors")
+        logger.info("=" * 80)
         
         return {
             "status": "completed",
@@ -340,13 +367,15 @@ async def cron_setup_missing_watches(authorization: str = Header(None)):
         
     except Exception as e:
         logger.error(f"❌ CRON: Watch setup check failed: {str(e)}")
+        logger.exception("Full traceback:")
+        logger.info("=" * 80)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Watch setup check failed: {str(e)}"
         )
 
 
-@router.post("/daily-verification")
+@router.get("/daily-verification")
 async def cron_daily_verification(authorization: str = Header(None)):
     """
     CRON JOB: Daily full sync for data integrity verification
@@ -358,13 +387,19 @@ async def cron_daily_verification(authorization: str = Header(None)):
     - Catches any edge cases or drift
     - Verifies database matches Google's state
     - Runs for a rotating subset of users (to manage load)
+    
+    NOTE: Uses GET because Vercel cron jobs send GET requests by default
     """
+    logger.info("=" * 80)
+    logger.info("🕐 CRON: Starting daily verification sync")
+    logger.info(f"⏰ Timestamp: {datetime.now(timezone.utc).isoformat()}")
+    
     # Verify authorization
     if not verify_cron_auth(authorization):
         logger.warning("⚠️ Unauthorized cron attempt")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
     
-    logger.info("🕐 CRON: Starting daily verification sync")
+    logger.info("✅ Authorization verified")
     start_time = datetime.now(timezone.utc)
     
     try:
@@ -433,6 +468,7 @@ async def cron_daily_verification(authorization: str = Header(None)):
         
         logger.info(f"✅ CRON: Daily verification completed in {duration:.2f}s")
         logger.info(f"📊 Results: {verified_count} verified, {error_count} errors")
+        logger.info("=" * 80)
         
         return {
             "status": "completed",
@@ -444,6 +480,8 @@ async def cron_daily_verification(authorization: str = Header(None)):
         
     except Exception as e:
         logger.error(f"❌ CRON: Daily verification failed: {str(e)}")
+        logger.exception("Full traceback:")
+        logger.info("=" * 80)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Daily verification failed: {str(e)}"
