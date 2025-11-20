@@ -41,7 +41,7 @@ class Settings(BaseSettings):
     google_client_secret: str = ""
     
     # Google Cloud Project settings (for push notifications)
-    google_project_id: str = ""
+    google_cloud_project_id: str = ""
     
     # Webhook URLs (set in production)
     webhook_base_url: str = "http://localhost:8000"  # Change to production URL

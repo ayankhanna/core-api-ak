@@ -55,7 +55,24 @@ def start_gmail_watch(
             .execute()
         
         if existing.data:
-            logger.info(f"📧 Gmail watch already exists for user {user_id}, will renew")
+            # Check if watch is still valid (not expiring soon)
+            expiration = datetime.fromisoformat(existing.data[0]['expiration'].replace('Z', '+00:00'))
+            time_until_expiry = expiration - datetime.now(timezone.utc)
+            hours_until_expiry = time_until_expiry.total_seconds() / 3600
+            
+            if hours_until_expiry > 24:
+                logger.info(f"✅ Gmail watch already exists and is healthy for user {user_id[:8]}... (expires in {hours_until_expiry:.1f}h)")
+                return {
+                    'success': True,
+                    'provider': 'gmail',
+                    'channel_id': existing.data[0]['channel_id'],
+                    'history_id': existing.data[0].get('history_id'),
+                    'expiration': existing.data[0]['expiration'],
+                    'subscription_id': existing.data[0]['id'],
+                    'message': 'Watch already exists and is healthy'
+                }
+            
+            logger.info(f"🔄 Gmail watch exists but expiring soon for user {user_id[:8]}..., will renew")
             # Stop existing watch first
             try:
                 stop_gmail_watch(user_id, user_jwt)
@@ -72,17 +89,17 @@ def start_gmail_watch(
             # TODO: Make this configurable via environment variable
         
         # Gmail watch requires Google Cloud Pub/Sub setup
-        # Check if GOOGLE_PROJECT_ID is configured
-        if not hasattr(settings, 'google_project_id') or not settings.google_project_id:
-            logger.warning(f"⚠️ GOOGLE_PROJECT_ID not configured, skipping Gmail watch setup")
+        # Check if GOOGLE_CLOUD_PROJECT_ID is configured
+        if not hasattr(settings, 'google_cloud_project_id') or not settings.google_cloud_project_id:
+            logger.warning(f"⚠️ GOOGLE_CLOUD_PROJECT_ID not configured, skipping Gmail watch setup")
             raise ValueError(
-                "Gmail push notifications require GOOGLE_PROJECT_ID environment variable. "
+                "Gmail push notifications require GOOGLE_CLOUD_PROJECT_ID environment variable. "
                 "Set up Google Cloud Pub/Sub first. See documentation for setup instructions."
             )
         
         request_body = {
             'labelIds': ['INBOX'],  # Watch all messages in inbox
-            'topicName': f'projects/{settings.google_project_id}/topics/gmail-push'
+            'topicName': f'projects/{settings.google_cloud_project_id}/topics/gmail-push'
         }
         
         logger.info(f"🔔 Starting Gmail watch for user {user_id} with channel {channel_id}")
@@ -200,7 +217,25 @@ def start_calendar_watch(
             .execute()
         
         if existing.data:
-            logger.info(f"📅 Calendar watch already exists for user {user_id}, will renew")
+            # Check if watch is still valid (not expiring soon)
+            expiration = datetime.fromisoformat(existing.data[0]['expiration'].replace('Z', '+00:00'))
+            time_until_expiry = expiration - datetime.now(timezone.utc)
+            hours_until_expiry = time_until_expiry.total_seconds() / 3600
+            
+            if hours_until_expiry > 24:
+                logger.info(f"✅ Calendar watch already exists and is healthy for user {user_id[:8]}... (expires in {hours_until_expiry:.1f}h)")
+                return {
+                    'success': True,
+                    'provider': 'calendar',
+                    'channel_id': existing.data[0]['channel_id'],
+                    'resource_id': existing.data[0].get('resource_id'),
+                    'sync_token': existing.data[0].get('sync_token'),
+                    'expiration': existing.data[0]['expiration'],
+                    'subscription_id': existing.data[0]['id'],
+                    'message': 'Watch already exists and is healthy'
+                }
+            
+            logger.info(f"🔄 Calendar watch exists but expiring soon for user {user_id[:8]}..., will renew")
             # Stop existing watch first
             try:
                 stop_calendar_watch(user_id, user_jwt)
