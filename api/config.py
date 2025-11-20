@@ -44,9 +44,18 @@ class Settings(BaseSettings):
     api_env: str = "development"
     
     class Config:
-        env_file = ".env"
+        # Don't require .env file - Vercel uses environment variables directly
         case_sensitive = False
         extra = "ignore"  # Ignore extra fields in .env
 
 
-settings = Settings()
+# Initialize settings - will load from environment variables
+try:
+    settings = Settings()
+except Exception as e:
+    import sys
+    print(f"❌ ERROR loading settings: {e}", file=sys.stderr, flush=True)
+    import traceback
+    traceback.print_exc(file=sys.stderr)
+    # Re-raise to fail fast
+    raise
