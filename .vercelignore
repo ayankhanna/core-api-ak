@@ -1,0 +1,12 @@
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.env
+.env.local
+.git/
+tests/
+*.md
+Makefile
+dev.py
+
