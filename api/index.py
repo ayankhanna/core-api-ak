@@ -98,3 +98,13 @@ async def health_check():
 # Vercel handler - must be at module level
 handler = Mangum(app, lifespan="off")
 
+# Debug: Print to verify module loaded
+print("✓ api.index module loaded successfully", flush=True)
+print(f"✓ handler type: {type(handler)}", flush=True)
+print(f"✓ app type: {type(app)}", flush=True)
+
+# For direct testing
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
+
