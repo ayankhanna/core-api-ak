@@ -71,14 +71,18 @@ def start_gmail_watch(
             webhook_url = f"https://your-domain.com/api/webhooks/gmail"
             # TODO: Make this configurable via environment variable
         
-        # Note: Gmail watch requires Google Cloud Pub/Sub setup
-        # For now, we'll use the direct webhook approach
-        # In production, you should use Pub/Sub for reliability
+        # Gmail watch requires Google Cloud Pub/Sub setup
+        # Check if GOOGLE_PROJECT_ID is configured
+        if not hasattr(settings, 'google_project_id') or not settings.google_project_id:
+            logger.warning(f"⚠️ GOOGLE_PROJECT_ID not configured, skipping Gmail watch setup")
+            raise ValueError(
+                "Gmail push notifications require GOOGLE_PROJECT_ID environment variable. "
+                "Set up Google Cloud Pub/Sub first. See documentation for setup instructions."
+            )
         
         request_body = {
             'labelIds': ['INBOX'],  # Watch all messages in inbox
             'topicName': f'projects/{settings.google_project_id}/topics/gmail-push'
-            # For direct webhook: 'address': webhook_url
         }
         
         logger.info(f"🔔 Starting Gmail watch for user {user_id} with channel {channel_id}")
@@ -104,6 +108,13 @@ def start_gmail_watch(
             expiration = datetime.now(timezone.utc) + timedelta(days=GMAIL_WATCH_EXPIRATION_DAYS)
         
         # Store watch subscription in database
+        # First deactivate any existing subscriptions for this user/provider
+        auth_supabase.table('push_subscriptions')\
+            .update({'is_active': False})\
+            .eq('user_id', user_id)\
+            .eq('provider', 'gmail')\
+            .execute()
+        
         subscription_data = {
             'user_id': user_id,
             'connection_id': connection_id,
@@ -246,6 +257,13 @@ def start_calendar_watch(
             sync_token = None
         
         # Store watch subscription in database
+        # First deactivate any existing subscriptions for this user/provider
+        auth_supabase.table('push_subscriptions')\
+            .update({'is_active': False})\
+            .eq('user_id', user_id)\
+            .eq('provider', 'calendar')\
+            .execute()
+        
         subscription_data = {
             'user_id': user_id,
             'connection_id': connection_id,
