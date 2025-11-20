@@ -427,3 +427,4 @@ async def sync_gmail_endpoint(
             detail=f"Failed to sync Gmail: {str(e)}"
         )
 
+

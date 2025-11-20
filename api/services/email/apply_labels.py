@@ -294,3 +294,4 @@ def delete_label(
         logger.error(f"Gmail API error: {str(e)}")
         raise ValueError(f"Failed to delete label: {str(e)}")
 
+
