@@ -4,7 +4,7 @@ from mangum import Mangum
 from datetime import datetime
 
 from api.config import settings
-from api.routers import tasks, auth, calendar, email, webhooks, cron
+from api.routers import tasks, auth, calendar, email
 
 app = FastAPI(
     title=settings.app_name,
@@ -27,8 +27,6 @@ app.include_router(auth.router)
 app.include_router(tasks.router)
 app.include_router(calendar.router)
 app.include_router(email.router)
-app.include_router(webhooks.router)
-app.include_router(cron.router)
 
 @app.get("/")
 async def root():
