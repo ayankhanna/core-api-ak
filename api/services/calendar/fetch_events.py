@@ -120,8 +120,11 @@ def get_all_events(user_id: str, user_jwt: str) -> Dict[str, Any]:
         
         events = events_result.get('items', [])
         
-        # Parse and return events (don't store in DB - sync endpoint does that)
+        # Parse and save events to database for caching
         parsed_events = []
+        synced_count = 0
+        updated_count = 0
+        
         for event in events:
             event_id = event.get('id')
             title = event.get('summary', 'Untitled Event')
@@ -142,7 +145,16 @@ def get_all_events(user_id: str, user_jwt: str) -> Dict[str, Any]:
                 start_time = start.get('dateTime')
                 end_time = end.get('dateTime')
             
-            parsed_events.append({
+            # Check if event already exists in DB
+            existing = auth_supabase.table('calendar_events')\
+                .select('id')\
+                .eq('user_id', user_id)\
+                .eq('external_id', event_id)\
+                .execute()
+            
+            event_data = {
+                'user_id': user_id,
+                'ext_connection_id': connection_id,
                 'external_id': event_id,
                 'title': title,
                 'description': description,
@@ -150,15 +162,60 @@ def get_all_events(user_id: str, user_jwt: str) -> Dict[str, Any]:
                 'start_time': start_time,
                 'end_time': end_time,
                 'is_all_day': is_all_day,
-                'status': event.get('status', 'confirmed')
-            })
+                'status': event.get('status', 'confirmed'),
+                'synced_at': datetime.now(timezone.utc).isoformat(),
+                'raw_item': event  # Store full Google Calendar event
+            }
+            
+            # Insert or update in database
+            if existing.data:
+                # Update existing event
+                result = auth_supabase.table('calendar_events')\
+                    .update(event_data)\
+                    .eq('id', existing.data[0]['id'])\
+                    .execute()
+                updated_count += 1
+                db_event = result.data[0] if result.data else None
+            else:
+                # Insert new event
+                result = auth_supabase.table('calendar_events')\
+                    .insert(event_data)\
+                    .execute()
+                synced_count += 1
+                db_event = result.data[0] if result.data else None
+            
+            # Add to parsed_events list with DB id if available
+            if db_event:
+                parsed_events.append(db_event)
+            else:
+                # Fallback if DB operation failed
+                parsed_events.append({
+                    'id': event_id,
+                    'external_id': event_id,
+                    'user_id': user_id,
+                    'title': title,
+                    'description': description,
+                    'location': location,
+                    'start_time': start_time,
+                    'end_time': end_time,
+                    'is_all_day': is_all_day,
+                    'status': event.get('status', 'confirmed')
+                })
         
-        logger.info(f"✅ Fetched {len(parsed_events)} events from Google Calendar API")
+        # Update last synced timestamp on connection
+        auth_supabase.table('ext_connections')\
+            .update({'last_synced': datetime.now(timezone.utc).isoformat()})\
+            .eq('id', connection_id)\
+            .execute()
+        
+        logger.info(f"✅ Fetched and synced {len(parsed_events)} events from Google Calendar API (new: {synced_count}, updated: {updated_count})")
         
         return {
             "events": parsed_events,
             "count": len(parsed_events),
-            "source": "google_api"
+            "source": "google_api_synced",
+            "synced_count": synced_count,
+            "updated_count": updated_count
         }
         
     except HttpError as e:
