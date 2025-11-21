@@ -51,6 +51,17 @@ async def gmail_webhook(
             # Get the subscription from database to find user
             supabase = get_supabase_client()
             
+            # DEBUG: First check if subscription exists at all (without filters)
+            debug_check = supabase.table('push_subscriptions')\
+                .select('*')\
+                .eq('channel_id', x_goog_channel_id)\
+                .execute()
+            
+            if debug_check.data:
+                logger.info(f"🔍 DEBUG: Found subscription(s) for channel: {debug_check.data}")
+            else:
+                logger.warning(f"🔍 DEBUG: No subscription found for channel_id {x_goog_channel_id} at all")
+            
             subscription = supabase.table('push_subscriptions')\
                 .select('*, ext_connections!push_subscriptions_ext_connection_id_fkey!inner(user_id, access_token, refresh_token)')\
                 .eq('channel_id', x_goog_channel_id)\
@@ -144,6 +155,17 @@ async def calendar_webhook(
         if x_goog_resource_state == "exists":
             # Get the subscription from database to find user
             supabase = get_supabase_client()
+            
+            # DEBUG: First check if subscription exists at all (without filters)
+            debug_check = supabase.table('push_subscriptions')\
+                .select('*')\
+                .eq('channel_id', x_goog_channel_id)\
+                .execute()
+            
+            if debug_check.data:
+                logger.info(f"🔍 DEBUG: Found subscription(s) for channel: {debug_check.data}")
+            else:
+                logger.warning(f"🔍 DEBUG: No subscription found for channel_id {x_goog_channel_id} at all")
             
             subscription = supabase.table('push_subscriptions')\
                 .select('*, ext_connections!push_subscriptions_ext_connection_id_fkey!inner(user_id, access_token, refresh_token)')\

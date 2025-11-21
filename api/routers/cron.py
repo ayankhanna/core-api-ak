@@ -34,7 +34,9 @@ from datetime import datetime, timezone, timedelta
 from lib.supabase_client import get_supabase_client, get_service_role_client
 from api.services.syncs import (
     sync_gmail_incremental,
+    sync_gmail_cron,
     sync_google_calendar,
+    sync_google_calendar_cron,
     renew_watch,
     get_expiring_subscriptions,
     setup_watches_for_user
@@ -200,20 +202,43 @@ async def cron_incremental_sync(authorization: str = Header(None)):
                 # Sync Gmail
                 if gmail_service:
                     try:
-                        # Call sync_gmail_incremental - we'll need to adapt it
-                        # For now, log success
                         logger.info(f"📧 Gmail sync triggered for user {user_id[:8]}...")
-                        synced_gmail = True
+                        result = sync_gmail_cron(
+                            gmail_service=gmail_service,
+                            connection_id=connection_id,
+                            user_id=user_id,
+                            service_supabase=service_supabase,
+                            days_back=7  # Sync last 7 days on first run
+                        )
+                        if result.get('status') == 'success':
+                            logger.info(f"✅ Gmail sync: {result.get('new_emails')} new, {result.get('updated_emails')} updated")
+                            synced_gmail = True
+                        else:
+                            logger.error(f"❌ Gmail sync returned error: {result.get('error')}")
                     except Exception as e:
                         logger.error(f"❌ Gmail sync failed for user {user_id[:8]}...: {str(e)}")
+                        logger.exception("Full traceback:")
                 
                 # Sync Calendar  
                 if calendar_service:
                     try:
                         logger.info(f"📅 Calendar sync triggered for user {user_id[:8]}...")
-                        synced_calendar = True
+                        result = sync_google_calendar_cron(
+                            calendar_service=calendar_service,
+                            connection_id=connection_id,
+                            user_id=user_id,
+                            service_supabase=service_supabase,
+                            days_past=30,  # Sync last 30 days
+                            days_future=90  # Sync next 90 days
+                        )
+                        if result.get('status') == 'success':
+                            logger.info(f"✅ Calendar sync: {result.get('new_events')} new, {result.get('updated_events')} updated")
+                            synced_calendar = True
+                        else:
+                            logger.error(f"❌ Calendar sync returned error: {result.get('error')}")
                     except Exception as e:
                         logger.error(f"❌ Calendar sync failed for user {user_id[:8]}...: {str(e)}")
+                        logger.exception("Full traceback:")
                 
                 if synced_gmail or synced_calendar:
                     # Update last_synced timestamp

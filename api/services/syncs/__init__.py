@@ -2,7 +2,9 @@
 Sync services for external providers (Google Calendar, Gmail, etc.)
 """
 from .sync_google_calendar import sync_google_calendar
+from .sync_google_calendar_cron import sync_google_calendar_cron
 from .sync_gmail import sync_gmail, sync_gmail_incremental, process_gmail_history
+from .sync_gmail_cron import sync_gmail_cron
 from .watch_manager import (
     start_gmail_watch,
     start_calendar_watch,
@@ -15,8 +17,10 @@ from .watch_manager import (
 
 __all__ = [
     'sync_google_calendar',
+    'sync_google_calendar_cron',
     'sync_gmail',
     'sync_gmail_incremental',
+    'sync_gmail_cron',
     'process_gmail_history',
     'start_gmail_watch',
     'start_calendar_watch',

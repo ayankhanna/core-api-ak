@@ -11,7 +11,9 @@ from .fetch_events import (
 from .create_event import create_event
 from .update_event import update_event
 from .delete_event import delete_event
-from api.services.syncs.sync_google_calendar import sync_google_calendar
+
+# Note: sync_google_calendar is available from api.services.syncs
+# (not imported here to avoid circular imports)
 
 # Export all functions for backward compatibility
 __all__ = [
@@ -23,6 +25,5 @@ __all__ = [
     'create_event',
     'update_event',
     'delete_event',
-    'sync_google_calendar',
 ]
 
