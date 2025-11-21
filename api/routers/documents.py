@@ -6,6 +6,7 @@ from typing import Optional, List
 from pydantic import BaseModel
 from api.services.documents import (
     create_document,
+    create_folder,
     get_documents,
     get_document_by_id,
     update_document,
@@ -33,6 +34,12 @@ class CreateDocumentRequest(BaseModel):
     position: int = 0
 
 
+class CreateFolderRequest(BaseModel):
+    title: str = "New Folder"
+    parent_id: Optional[str] = None
+    position: int = 0
+
+
 class UpdateDocumentRequest(BaseModel):
     title: Optional[str] = None
     content: Optional[str] = None
@@ -54,6 +61,8 @@ async def get_documents_endpoint(
     parent_id: Optional[str] = None,
     include_archived: bool = False,
     favorites_only: bool = False,
+    folders_only: bool = False,
+    documents_only: bool = False,
 ):
     """
     Get documents for a user with optional filtering.
@@ -63,9 +72,12 @@ async def get_documents_endpoint(
         logger.info(f"📄 Fetching documents for user {user_id}")
         documents = await get_documents(
             user_id=user_id,
+            user_jwt=user_jwt,
             parent_id=parent_id,
             include_archived=include_archived,
             favorites_only=favorites_only,
+            folders_only=folders_only,
+            documents_only=documents_only,
         )
         logger.info(f"✅ Fetched {len(documents)} documents")
         return {"documents": documents, "count": len(documents)}
@@ -97,7 +109,7 @@ async def get_document_endpoint(
     """
     try:
         logger.info(f"📄 Fetching document {document_id} for user {user_id}")
-        document = await get_document_by_id(user_id=user_id, document_id=document_id)
+        document = await get_document_by_id(user_id=user_id, user_jwt=user_jwt, document_id=document_id)
         
         if not document:
             raise HTTPException(
@@ -139,6 +151,7 @@ async def create_document_endpoint(
         logger.info(f"📄 Creating document for user {user_id}")
         document = await create_document(
             user_id=user_id,
+            user_jwt=user_jwt,
             title=request.title,
             content=request.content,
             icon=request.icon,
@@ -164,6 +177,43 @@ async def create_document_endpoint(
         )
 
 
+@router.post("/folders", status_code=status.HTTP_201_CREATED)
+async def create_folder_endpoint(
+    request: CreateFolderRequest,
+    user_id: str,
+    user_jwt: str = Depends(get_current_user_jwt),
+):
+    """
+    Create a new folder.
+    Requires: Authorization header with user's Supabase JWT
+    """
+    try:
+        logger.info(f"📁 Creating folder for user {user_id}")
+        folder = await create_folder(
+            user_id=user_id,
+            user_jwt=user_jwt,
+            title=request.title,
+            parent_id=request.parent_id,
+            position=request.position,
+        )
+        logger.info(f"✅ Created folder {folder['id']}")
+        return folder
+    except Exception as e:
+        error_str = str(e)
+        logger.error(f"❌ Error creating folder: {error_str}")
+        
+        if 'JWT expired' in error_str or 'PGRST303' in error_str:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Your session has expired. Please sign in again."
+            )
+        
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create folder: {error_str}"
+        )
+
+
 @router.patch("/{document_id}")
 async def update_document_endpoint(
     document_id: str,
@@ -179,6 +229,7 @@ async def update_document_endpoint(
         logger.info(f"📄 Updating document {document_id} for user {user_id}")
         document = await update_document(
             user_id=user_id,
+            user_jwt=user_jwt,
             document_id=document_id,
             title=request.title,
             content=request.content,
@@ -223,7 +274,7 @@ async def delete_document_endpoint(
     """
     try:
         logger.info(f"📄 Deleting document {document_id} for user {user_id}")
-        await delete_document(user_id=user_id, document_id=document_id)
+        await delete_document(user_id=user_id, user_jwt=user_jwt, document_id=document_id)
         logger.info(f"✅ Deleted document {document_id}")
         return None
     except Exception as e:
@@ -260,7 +311,7 @@ async def archive_document_endpoint(
     """
     try:
         logger.info(f"📄 Archiving document {document_id} for user {user_id}")
-        document = await archive_document(user_id=user_id, document_id=document_id)
+        document = await archive_document(user_id=user_id, user_jwt=user_jwt, document_id=document_id)
         logger.info(f"✅ Archived document {document_id}")
         return document
     except Exception as e:
@@ -297,7 +348,7 @@ async def unarchive_document_endpoint(
     """
     try:
         logger.info(f"📄 Unarchiving document {document_id} for user {user_id}")
-        document = await unarchive_document(user_id=user_id, document_id=document_id)
+        document = await unarchive_document(user_id=user_id, user_jwt=user_jwt, document_id=document_id)
         logger.info(f"✅ Unarchived document {document_id}")
         return document
     except Exception as e:
@@ -334,7 +385,7 @@ async def favorite_document_endpoint(
     """
     try:
         logger.info(f"📄 Favoriting document {document_id} for user {user_id}")
-        document = await favorite_document(user_id=user_id, document_id=document_id)
+        document = await favorite_document(user_id=user_id, user_jwt=user_jwt, document_id=document_id)
         logger.info(f"✅ Favorited document {document_id}")
         return document
     except Exception as e:
@@ -371,7 +422,7 @@ async def unfavorite_document_endpoint(
     """
     try:
         logger.info(f"📄 Unfavoriting document {document_id} for user {user_id}")
-        document = await unfavorite_document(user_id=user_id, document_id=document_id)
+        document = await unfavorite_document(user_id=user_id, user_jwt=user_jwt, document_id=document_id)
         logger.info(f"✅ Unfavorited document {document_id}")
         return document
     except Exception as e:
@@ -409,7 +460,7 @@ async def reorder_documents_endpoint(
     try:
         logger.info(f"📄 Reordering documents for user {user_id}")
         documents = await reorder_documents(
-            user_id=user_id, document_positions=request.document_positions
+            user_id=user_id, user_jwt=user_jwt, document_positions=request.document_positions
         )
         logger.info(f"✅ Reordered {len(documents)} documents")
         return {"documents": documents, "count": len(documents)}

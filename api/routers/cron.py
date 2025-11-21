@@ -60,11 +60,12 @@ def get_google_services_for_user(user_id: str, service_supabase):
     """
     from google.oauth2.credentials import Credentials
     from googleapiclient.discovery import build
+    from api.config import settings
     
     try:
         # Get user's Google OAuth connection using service role (bypasses RLS)
         connection_result = service_supabase.table('ext_connections')\
-            .select('id, access_token, refresh_token, token_expires_at')\
+            .select('id, access_token, refresh_token, token_expires_at, metadata')\
             .eq('user_id', user_id)\
             .eq('provider', 'google')\
             .eq('is_active', True)\
@@ -77,13 +78,34 @@ def get_google_services_for_user(user_id: str, service_supabase):
         connection_data = connection_result.data
         connection_id = connection_data['id']
         access_token = connection_data.get('access_token')
+        refresh_token = connection_data.get('refresh_token')
         
         if not access_token:
             logger.warning(f"⚠️ No access token for user {user_id}")
             return None, None, None
         
-        # Build API clients
-        credentials = Credentials(token=access_token)
+        if not refresh_token:
+            logger.warning(f"⚠️ No refresh token for user {user_id}")
+            return None, None, None
+        
+        # Get client credentials from metadata or fall back to settings
+        metadata = connection_data.get('metadata', {})
+        client_id = metadata.get('client_id') or settings.google_client_id
+        client_secret = metadata.get('client_secret') or settings.google_client_secret
+        
+        if not client_id or not client_secret:
+            logger.error("Missing Google OAuth client credentials (client_id or client_secret)")
+            logger.error("Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET environment variables")
+            return None, None, None
+        
+        # Build API clients with full credentials including refresh token
+        credentials = Credentials(
+            token=access_token,
+            refresh_token=refresh_token,
+            token_uri='https://oauth2.googleapis.com/token',
+            client_id=client_id,
+            client_secret=client_secret
+        )
         gmail_service = build('gmail', 'v1', credentials=credentials)
         calendar_service = build('calendar', 'v3', credentials=credentials)
         

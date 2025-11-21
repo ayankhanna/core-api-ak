@@ -1,6 +1,6 @@
 """Service for creating new documents."""
 from typing import Optional
-from lib.supabase_client import supabase
+from lib.supabase_client import get_authenticated_supabase_client
 import logging
 
 logger = logging.getLogger(__name__)
@@ -8,6 +8,7 @@ logger = logging.getLogger(__name__)
 
 async def create_document(
     user_id: str,
+    user_jwt: str,
     title: str = "Untitled",
     content: str = "",
     icon: Optional[str] = None,
@@ -20,6 +21,7 @@ async def create_document(
     
     Args:
         user_id: User ID who owns the document
+        user_jwt: User's Supabase JWT for authenticated requests
         title: Document title
         content: Document content (markdown)
         icon: Optional emoji or icon identifier
@@ -30,6 +32,8 @@ async def create_document(
     Returns:
         The created document record
     """
+    auth_supabase = get_authenticated_supabase_client(user_jwt)
+    
     try:
         document_data = {
             "user_id": user_id,
@@ -45,7 +49,7 @@ async def create_document(
         if parent_id is not None:
             document_data["parent_id"] = parent_id
         
-        result = supabase.table("documents").insert(document_data).execute()
+        result = auth_supabase.table("documents").insert(document_data).execute()
         
         if not result.data:
             raise Exception("Failed to create document")

@@ -1,11 +1,11 @@
 """Service for deleting documents."""
-from lib.supabase_client import supabase
+from lib.supabase_client import get_authenticated_supabase_client
 import logging
 
 logger = logging.getLogger(__name__)
 
 
-async def delete_document(user_id: str, document_id: str) -> bool:
+async def delete_document(user_id: str, user_jwt: str, document_id: str) -> bool:
     """
     Permanently delete a document.
     
@@ -13,14 +13,17 @@ async def delete_document(user_id: str, document_id: str) -> bool:
     
     Args:
         user_id: User ID who owns the document
+        user_jwt: User's Supabase JWT for authenticated requests
         document_id: Document ID to delete
     
     Returns:
         True if successful
     """
+    auth_supabase = get_authenticated_supabase_client(user_jwt)
+    
     try:
         result = (
-            supabase.table("documents")
+            auth_supabase.table("documents")
             .delete()
             .eq("user_id", user_id)
             .eq("id", document_id)
