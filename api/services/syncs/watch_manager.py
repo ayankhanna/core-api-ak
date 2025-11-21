@@ -132,7 +132,7 @@ def start_gmail_watch(
         
         subscription_data = {
             'user_id': user_id,
-            'connection_id': connection_id,
+            'ext_connection_id': connection_id,
             'provider': 'gmail',
             'channel_id': channel_id,
             'resource_id': None,  # Gmail doesn't return this
@@ -298,7 +298,7 @@ def start_calendar_watch(
         
         subscription_data = {
             'user_id': user_id,
-            'connection_id': connection_id,
+            'ext_connection_id': connection_id,
             'provider': 'calendar',
             'channel_id': channel_id,
             'resource_id': resource_id,
