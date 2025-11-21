@@ -35,6 +35,7 @@ class Settings(BaseSettings):
     # Supabase settings
     supabase_url: str = ""
     supabase_anon_key: str = ""
+    supabase_service_role_key: str = ""  # Service role key for cron jobs and admin operations
     
     # Google OAuth settings (required for Google Calendar sync)
     google_client_id: str = ""
@@ -53,7 +54,10 @@ class Settings(BaseSettings):
     api_env: str = "development"
     
     class Config:
-        # Don't require .env file - Vercel uses environment variables directly
+        # Load from .env file for local development
+        # In production (Vercel), environment variables are set directly
+        env_file = ".env"
+        env_file_encoding = "utf-8"
         case_sensitive = False
         extra = "ignore"  # Ignore extra fields in .env
 

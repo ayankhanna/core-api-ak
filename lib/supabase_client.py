@@ -20,14 +20,16 @@ def get_supabase_client() -> Client:
     global _supabase_client
     
     if _supabase_client is None:
-        supabase_url = os.getenv(
-            'SUPABASE_URL', 
-            'https://rcwkcskfndgseuaonfsf.supabase.co'
-        )
-        supabase_key = os.getenv(
-            'SUPABASE_ANON_KEY',
-            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJjd2tjc2tmbmRnc2V1YW9uZnNmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM3NTAyMjcsImV4cCI6MjA3OTMyNjIyN30.t3tGXCwHMSyzDEoe0SQU_8iSRC8MnHODkC75XhXHLCQ'
-        )
+        # Import here to avoid circular dependency
+        from api.config import settings
+        
+        supabase_url = settings.supabase_url or os.getenv('SUPABASE_URL')
+        supabase_key = settings.supabase_anon_key or os.getenv('SUPABASE_ANON_KEY')
+        
+        if not supabase_url or not supabase_key:
+            raise ValueError(
+                "SUPABASE_URL and SUPABASE_ANON_KEY must be set in environment variables or .env file"
+            )
         
         _supabase_client = create_client(supabase_url, supabase_key)
     
@@ -45,14 +47,16 @@ def get_authenticated_supabase_client(user_jwt: str) -> Client:
     Returns:
         Client: Supabase client authenticated as the user
     """
-    supabase_url = os.getenv(
-        'SUPABASE_URL', 
-        'https://rcwkcskfndgseuaonfsf.supabase.co'
-    )
-    supabase_key = os.getenv(
-        'SUPABASE_ANON_KEY',
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJjd2tjc2tmbmRnc2V1YW9uZnNmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM3NTAyMjcsImV4cCI6MjA3OTMyNjIyN30.t3tGXCwHMSyzDEoe0SQU_8iSRC8MnHODkC75XhXHLCQ'
-    )
+    # Import here to avoid circular dependency
+    from api.config import settings
+    
+    supabase_url = settings.supabase_url or os.getenv('SUPABASE_URL')
+    supabase_key = settings.supabase_anon_key or os.getenv('SUPABASE_ANON_KEY')
+    
+    if not supabase_url or not supabase_key:
+        raise ValueError(
+            "SUPABASE_URL and SUPABASE_ANON_KEY must be set in environment variables or .env file"
+        )
     
     # Create client with user's JWT
     client = create_client(supabase_url, supabase_key)
@@ -77,15 +81,20 @@ def get_service_role_client() -> Client:
     Returns:
         Client: Supabase client with service role privileges
     """
-    supabase_url = os.getenv(
-        'SUPABASE_URL', 
-        'https://rcwkcskfndgseuaonfsf.supabase.co'
-    )
-    supabase_service_key = os.getenv('SUPABASE_SERVICE_ROLE_KEY')
+    # Import here to avoid circular dependency
+    from api.config import settings
+    
+    supabase_url = settings.supabase_url or os.getenv('SUPABASE_URL')
+    supabase_service_key = settings.supabase_service_role_key or os.getenv('SUPABASE_SERVICE_ROLE_KEY')
+    
+    if not supabase_url:
+        raise ValueError(
+            "SUPABASE_URL must be set in environment variables or .env file"
+        )
     
     if not supabase_service_key:
         raise ValueError(
-            "SUPABASE_SERVICE_ROLE_KEY environment variable is not set. "
+            "SUPABASE_SERVICE_ROLE_KEY must be set in environment variables or .env file. "
             "This is required for server-to-server operations like cron jobs. "
             "Find your service role key in Supabase Dashboard → Settings → API"
         )

@@ -82,11 +82,9 @@ def start_gmail_watch(
         # Generate unique channel ID
         channel_id = str(uuid.uuid4())
         
-        # Set webhook URL (use environment variable or default)
+        # Set webhook URL (use configured base URL from settings)
         if not webhook_url:
-            # In production, this should be your actual domain
-            webhook_url = f"https://your-domain.com/api/webhooks/gmail"
-            # TODO: Make this configurable via environment variable
+            webhook_url = f"{settings.webhook_base_url}/api/webhooks/gmail"
         
         # Gmail watch requires Google Cloud Pub/Sub setup
         # Check if GOOGLE_CLOUD_PROJECT_ID is configured
@@ -245,10 +243,9 @@ def start_calendar_watch(
         # Generate unique channel ID
         channel_id = str(uuid.uuid4())
         
-        # Set webhook URL
+        # Set webhook URL (use configured base URL from settings)
         if not webhook_url:
-            webhook_url = f"https://your-domain.com/api/webhooks/calendar"
-            # TODO: Make this configurable via environment variable
+            webhook_url = f"{settings.webhook_base_url}/api/webhooks/calendar"
         
         # Calculate expiration (7 days from now)
         expiration = datetime.now(timezone.utc) + timedelta(days=CALENDAR_WATCH_EXPIRATION_DAYS)
