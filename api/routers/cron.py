@@ -295,7 +295,7 @@ async def cron_renew_watches(authorization: str = Header(None)):
         threshold_time = datetime.now(timezone.utc) + timedelta(hours=24)
         
         result = service_supabase.table('push_subscriptions')\
-            .select('*, ext_connections!inner(user_id, is_active, access_token, refresh_token)')\
+            .select('*, ext_connections!push_subscriptions_ext_connection_id_fkey!inner(user_id, is_active, access_token, refresh_token)')\
             .eq('is_active', True)\
             .lt('expiration', threshold_time.isoformat())\
             .execute()

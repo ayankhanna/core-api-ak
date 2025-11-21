@@ -52,7 +52,7 @@ async def gmail_webhook(
             supabase = get_supabase_client()
             
             subscription = supabase.table('push_subscriptions')\
-                .select('*, ext_connections!inner(user_id, access_token, refresh_token)')\
+                .select('*, ext_connections!push_subscriptions_ext_connection_id_fkey!inner(user_id, access_token, refresh_token)')\
                 .eq('channel_id', x_goog_channel_id)\
                 .eq('provider', 'gmail')\
                 .eq('is_active', True)\
@@ -146,7 +146,7 @@ async def calendar_webhook(
             supabase = get_supabase_client()
             
             subscription = supabase.table('push_subscriptions')\
-                .select('*, ext_connections!inner(user_id, access_token, refresh_token)')\
+                .select('*, ext_connections!push_subscriptions_ext_connection_id_fkey!inner(user_id, access_token, refresh_token)')\
                 .eq('channel_id', x_goog_channel_id)\
                 .eq('provider', 'calendar')\
                 .eq('is_active', True)\

@@ -486,7 +486,7 @@ def get_expiring_subscriptions(hours_threshold: int = 24) -> list:
     
     try:
         result = supabase.table('push_subscriptions')\
-            .select('*, ext_connections!inner(user_id, is_active)')\
+            .select('*, ext_connections!push_subscriptions_ext_connection_id_fkey!inner(user_id, is_active)')\
             .eq('is_active', True)\
             .lt('expiration', threshold_time.isoformat())\
             .execute()
