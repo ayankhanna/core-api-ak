@@ -109,16 +109,21 @@ def update_draft(
         
         # Update in database
         to_addresses = [final_to] if final_to else []
+        cc_addresses = final_cc if final_cc else []
+        bcc_addresses = final_bcc if final_bcc else []
+        
+        # Use plain text body, or HTML if plain not available
+        body_content = final_body or final_html or ''
         
         db_data = {
             'subject': final_subject,
-            'to_addresses': to_addresses,
-            'cc_addresses': final_cc if final_cc else None,
-            'body_text': final_body,
-            'body_html': final_html,
+            'to': to_addresses,
+            'cc': cc_addresses if cc_addresses else None,
+            'bcc': bcc_addresses if bcc_addresses else None,
+            'body': body_content,
             'snippet': final_body[:100] if final_body else '',
             'updated_at': datetime.now(timezone.utc).isoformat(),
-            'metadata': {'raw_item': updated_draft}
+            'raw_item': updated_draft
         }
         
         # Update in database by external_id

@@ -76,6 +76,11 @@ def create_draft(
         
         # Store in database
         to_addresses = [to] if to else []
+        cc_addresses = cc if cc else []
+        bcc_addresses = bcc if bcc else []
+        
+        # Use plain text body, or HTML if plain not available
+        body_content = body or html_body or ''
         
         db_data = {
             'user_id': user_id,
@@ -83,19 +88,17 @@ def create_draft(
             'external_id': message_id,
             'thread_id': thread_id,
             'subject': subject,
-            'from_address': '',  # Drafts don't have from until sent
-            'to_addresses': to_addresses,
-            'cc_addresses': cc if cc else None,
-            'body_text': body,
-            'body_html': html_body,
+            'from': '',  # Drafts don't have from until sent
+            'to': to_addresses,
+            'cc': cc_addresses if cc_addresses else None,
+            'bcc': bcc_addresses if bcc_addresses else None,
+            'body': body_content,
             'snippet': body[:100] if body else '',
             'labels': ['DRAFT'],
             'is_read': True,
+            'is_draft': True,
             'received_at': datetime.now(timezone.utc).isoformat(),
-            'metadata': {
-                'draft_id': draft_id,
-                'raw_item': draft
-            }
+            'raw_item': draft
         }
         
         # Check if draft already exists in DB

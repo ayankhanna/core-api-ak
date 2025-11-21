@@ -63,9 +63,9 @@ def fetch_emails(
         
         # Text search in subject/from if query is provided
         if query:
-            # Simple text search in subject and from_address
+            # Simple text search in subject and from
             # For production, consider using PostgreSQL full-text search
-            db_query = db_query.or_(f'subject.ilike.%{query}%,from_address.ilike.%{query}%')
+            db_query = db_query.or_(f'subject.ilike.%{query}%,from.ilike.%{query}%')
         
         # Order by received_at desc
         db_query = db_query.order('received_at', desc=True).limit(max_results)
@@ -78,34 +78,34 @@ def fetch_emails(
         # Map DB format to API format
         mapped_emails = []
         for e in cached_emails:
-            # Handle array vs string fields safely
-            to_addr = e.get('to_addresses', [])
-            if isinstance(to_addr, list):
-                to_str = ', '.join(to_addr)
+            # Handle array fields
+            to_field = e.get('to', [])
+            if isinstance(to_field, list):
+                to_str = ', '.join(to_field)
             else:
-                to_str = str(to_addr or '')
+                to_str = str(to_field or '')
                 
-            cc_addr = e.get('cc_addresses', [])
-            if isinstance(cc_addr, list):
-                cc_str = ', '.join(cc_addr)
+            cc_field = e.get('cc', [])
+            if isinstance(cc_field, list):
+                cc_str = ', '.join(cc_field)
             else:
-                cc_str = str(cc_addr or '')
+                cc_str = str(cc_field or '')
                 
-            mapped_emails.append({
-                'external_id': e['external_id'],
-                'thread_id': e.get('thread_id'),
-                'subject': e.get('subject', '(No Subject)'),
-                'from': e.get('from_address', ''),
-                'to': to_str,
-                'cc': cc_str,
-                'snippet': e.get('snippet', ''),
-                'labels': e.get('labels', []),
-                'is_unread': not e.get('is_read', True),
-                'received_at': e.get('received_at'),
-                'has_attachments': e.get('metadata', {}).get('has_attachments', False),
-                'attachment_count': len(e.get('metadata', {}).get('attachments', [])),
-                'source': 'database'
-            })
+                mapped_emails.append({
+                    'external_id': e['external_id'],
+                    'thread_id': e.get('thread_id'),
+                    'subject': e.get('subject', '(No Subject)'),
+                    'from': e.get('from', ''),
+                    'to': to_str,
+                    'cc': cc_str,
+                    'snippet': e.get('snippet', ''),
+                    'labels': e.get('labels', []),
+                    'is_unread': not e.get('is_read', True),
+                    'received_at': e.get('received_at'),
+                    'has_attachments': e.get('has_attachments', False),
+                    'attachment_count': len(e.get('attachments', [])),
+                    'source': 'database'
+                })
         
         return {
             "emails": mapped_emails,

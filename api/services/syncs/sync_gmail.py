@@ -132,31 +132,29 @@ def sync_gmail(
                 to_addresses = [addr.strip() for addr in headers.get('to', '').split(',')] if headers.get('to') else []
                 cc_addresses = [addr.strip() for addr in headers.get('cc', '').split(',')] if headers.get('cc') else []
                 
+                # Use plain text body, or HTML if plain not available
+                body_content = body.get('plain') or body.get('html', '')
+                
                 email_data = {
                     'user_id': user_id,
                     'ext_connection_id': connection_id,
                     'external_id': message_id,
                     'thread_id': thread_id,
                     'subject': headers.get('subject', '(No Subject)'),
-                    'from_address': headers.get('from', ''),
-                    'to_addresses': to_addresses,
-                    'cc_addresses': cc_addresses if cc_addresses else None,
-                    'body_text': body.get('plain', ''),
-                    'body_html': body.get('html', ''),
+                    'from': headers.get('from', ''),
+                    'to': to_addresses,
+                    'cc': cc_addresses if cc_addresses else None,
+                    'body': body_content,
                     'snippet': snippet,
                     'labels': labels,
                     'is_read': not is_unread,
                     'is_starred': is_starred,
+                    'is_draft': is_draft,
                     'received_at': received_at,
-                    'metadata': {
-                        'is_important': is_important,
-                        'is_draft': is_draft,
-                        'size_estimate': size_estimate,
-                        'has_attachments': len(attachments) > 0,
-                        'attachments': attachments,
-                        'raw_item': full_msg  # Store full lossless Gmail message
-                    },
-                    'synced_at': datetime.now(timezone.utc).isoformat()
+                    'has_attachments': len(attachments) > 0,
+                    'attachments': attachments,
+                    'synced_at': datetime.now(timezone.utc).isoformat(),
+                    'raw_item': full_msg  # Store full lossless Gmail message
                 }
                 
                 if existing.data:
@@ -404,31 +402,29 @@ def process_gmail_history(
                         to_addresses = [addr.strip() for addr in headers.get('to', '').split(',')] if headers.get('to') else []
                         cc_addresses = [addr.strip() for addr in headers.get('cc', '').split(',')] if headers.get('cc') else []
                         
+                        # Use plain text body, or HTML if plain not available
+                        body_content = body.get('plain') or body.get('html', '')
+                        
                         email_data = {
                             'user_id': user_id,
                             'ext_connection_id': connection_id,
                             'external_id': message_id,
                             'thread_id': thread_id,
                             'subject': headers.get('subject', '(No Subject)'),
-                            'from_address': headers.get('from', ''),
-                            'to_addresses': to_addresses,
-                            'cc_addresses': cc_addresses if cc_addresses else None,
-                            'body_text': body.get('plain', ''),
-                            'body_html': body.get('html', ''),
+                            'from': headers.get('from', ''),
+                            'to': to_addresses,
+                            'cc': cc_addresses if cc_addresses else None,
+                            'body': body_content,
                             'snippet': snippet,
                             'labels': labels,
                             'is_read': not is_unread,
                             'is_starred': is_starred,
+                            'is_draft': is_draft,
                             'received_at': received_at,
-                            'metadata': {
-                                'is_important': is_important,
-                                'is_draft': is_draft,
-                                'size_estimate': size_estimate,
-                                'has_attachments': len(attachments) > 0,
-                                'attachments': attachments,
-                                'raw_item': full_msg
-                            },
-                            'synced_at': datetime.now(timezone.utc).isoformat()
+                            'has_attachments': len(attachments) > 0,
+                            'attachments': attachments,
+                            'synced_at': datetime.now(timezone.utc).isoformat(),
+                            'raw_item': full_msg
                         }
                         
                         if existing.data:

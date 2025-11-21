@@ -82,6 +82,11 @@ def send_email(
         
         # Store in database
         to_addresses = [to] if to else []
+        cc_addresses = cc if cc else []
+        bcc_addresses = bcc if bcc else []
+        
+        # Use plain text body, or HTML if plain not available
+        body_content = body or html_body or ''
         
         db_data = {
             'user_id': user_id,
@@ -89,18 +94,16 @@ def send_email(
             'external_id': sent_id,
             'thread_id': sent_thread_id,
             'subject': subject,
-            'from_address': '',  # Will be filled by Gmail
-            'to_addresses': to_addresses,
-            'cc_addresses': cc if cc else None,
-            'body_text': body,
-            'body_html': html_body,
+            'from': '',  # Will be filled by Gmail
+            'to': to_addresses,
+            'cc': cc_addresses if cc_addresses else None,
+            'bcc': bcc_addresses if bcc_addresses else None,
+            'body': body_content,
             'snippet': body[:100] if body else '',
             'labels': ['SENT'],
             'is_read': True,
             'received_at': datetime.now(timezone.utc).isoformat(),
-            'metadata': {
-                'raw_item': sent_message
-            }
+            'raw_item': sent_message
         }
         
         auth_supabase.table('emails')\

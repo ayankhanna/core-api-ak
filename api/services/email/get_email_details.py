@@ -113,6 +113,7 @@ def get_email_details(
         # Parse addresses into arrays
         to_addresses = [addr.strip() for addr in email_details['to'].split(',')] if email_details['to'] else []
         cc_addresses = [addr.strip() for addr in email_details.get('cc', '').split(',')] if email_details.get('cc') else []
+        bcc_addresses = [addr.strip() for addr in email_details.get('bcc', '').split(',')] if email_details.get('bcc') else []
         
         # Convert internal date to received_at
         if internal_date:
@@ -124,30 +125,30 @@ def get_email_details(
             # Fallback to current time if no internal date
             received_at = datetime.now(timezone.utc).isoformat()
         
+        # Use plain text body, or HTML if plain not available
+        body_content = body.get('plain') or body.get('html', '')
+        
         db_data = {
             'user_id': user_id,
             'ext_connection_id': connection_id,
             'external_id': email_id,
             'thread_id': thread_id,
             'subject': email_details['subject'],
-            'from_address': email_details['from'],
-            'to_addresses': to_addresses,
-            'cc_addresses': cc_addresses if cc_addresses else None,
-            'body_text': body.get('plain', ''),
-            'body_html': body.get('html', ''),
+            'from': email_details['from'],
+            'to': to_addresses,
+            'cc': cc_addresses if cc_addresses else None,
+            'bcc': bcc_addresses if bcc_addresses else None,
+            'body': body_content,
             'snippet': snippet,
             'labels': labels,
             'is_read': not is_unread,
             'is_starred': is_starred,
+            'is_draft': is_draft,
             'received_at': received_at,
-            'metadata': {
-                'is_important': is_important,
-                'size_estimate': size_estimate,
-                'has_attachments': len(attachments) > 0,
-                'attachments': attachments,
-                'raw_item': full_msg
-            },
-            'synced_at': datetime.now(timezone.utc).isoformat()
+            'has_attachments': len(attachments) > 0,
+            'attachments': attachments,
+            'synced_at': datetime.now(timezone.utc).isoformat(),
+            'raw_item': full_msg
         }
         
         if existing.data:

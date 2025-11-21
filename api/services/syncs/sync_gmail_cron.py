@@ -124,22 +124,33 @@ def sync_gmail_cron(
                         .eq('external_id', message_id)\
                         .execute()
                     
+                    # Parse to/cc/bcc into arrays
+                    to_addrs = [addr.strip() for addr in headers.get('to', '').split(',')] if headers.get('to') else []
+                    cc_addrs = [addr.strip() for addr in headers.get('cc', '').split(',')] if headers.get('cc') else []
+                    bcc_addrs = [addr.strip() for addr in headers.get('bcc', '').split(',')] if headers.get('bcc') else []
+                    
+                    # Use plain text body, or HTML if plain not available
+                    body_content = body.get('plain') or body.get('html', '')
+                    
+                    # Check if draft
+                    is_draft = 'DRAFT' in labels
+                    
                     email_data = {
                         'user_id': user_id,
                         'ext_connection_id': connection_id,
                         'external_id': message_id,
                         'thread_id': thread_id,
                         'subject': headers.get('subject', '(No subject)'),
-                        'from_email': headers.get('from', ''),
-                        'to_email': headers.get('to', ''),
-                        'cc': headers.get('cc'),
-                        'bcc': headers.get('bcc'),
-                        'body_text': body.get('plain'),
-                        'body_html': body.get('html'),
+                        'from': headers.get('from', ''),
+                        'to': to_addrs,
+                        'cc': cc_addrs if cc_addrs else None,
+                        'bcc': bcc_addrs if bcc_addrs else None,
+                        'body': body_content,
                         'received_at': received_at,
                         'labels': labels,
                         'is_read': 'UNREAD' not in labels,
                         'is_starred': 'STARRED' in labels,
+                        'is_draft': is_draft,
                         'has_attachments': len(attachments) > 0,
                         'attachments': attachments if attachments else None,
                         'synced_at': datetime.now(timezone.utc).isoformat(),
