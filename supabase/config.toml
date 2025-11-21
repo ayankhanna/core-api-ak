@@ -1,0 +1,37 @@
+# Supabase Configuration for Buzzed Core Project
+# Project: core
+# Organization: Buzzed
+# Region: us-east-2
+# Project ID: rcwkcskfndgseuaonfsf
+
+[project]
+project_id = "rcwkcskfndgseuaonfsf"
+organization_id = "wpgothkfxrekrxreuzim"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "storage", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+major_version = 17
+
+[studio]
+enabled = true
+port = 54323
+
+[auth]
+enabled = true
+port = 54324
+
+[storage]
+enabled = true
+port = 54325
+
+[functions]
+enabled = true
+port = 54326
+
