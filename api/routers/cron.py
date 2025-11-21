@@ -39,8 +39,6 @@ from api.services.syncs import (
     get_expiring_subscriptions,
     setup_watches_for_user
 )
-from api.services.email.google_api_helpers import get_gmail_service_with_tokens
-from api.services.calendar.google_api_helpers import get_google_calendar_service_with_tokens
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/cron", tags=["cron"])
