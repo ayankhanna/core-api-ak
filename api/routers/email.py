@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from api.services.email import (
     fetch_emails,
     get_email_details,
+    get_thread_emails,
     send_email,
     create_draft,
     update_draft,
@@ -113,6 +114,29 @@ async def get_email_details_endpoint(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch email details: {str(e)}"
+        )
+
+
+@router.get("/threads/{thread_id}")
+async def get_thread_endpoint(
+    thread_id: str,
+    user_id: str,
+    user_jwt: str = Depends(get_current_user_jwt)
+):
+    """
+    Get all emails in a thread (conversation view).
+    Requires: Authorization header with user's Supabase JWT
+    """
+    try:
+        logger.info(f"📧 Fetching thread {thread_id} for user {user_id}")
+        result = get_thread_emails(user_id, user_jwt, thread_id)
+        logger.info(f"✅ Thread retrieved with {result.get('count', 0)} messages")
+        return result
+    except Exception as e:
+        logger.error(f"❌ Error fetching thread: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch thread: {str(e)}"
         )
 
 

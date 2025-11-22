@@ -1,7 +1,7 @@
 """
 Email services for Gmail operations
 """
-from .fetch_emails import fetch_emails, get_email_by_id
+from .fetch_emails import fetch_emails, get_email_by_id, get_thread_emails
 from .get_email_details import get_email_details
 from .send_email import send_email
 from .create_draft import create_draft
@@ -15,6 +15,7 @@ from .mark_read_unread import mark_as_read, mark_as_unread
 __all__ = [
     'fetch_emails',
     'get_email_by_id',
+    'get_thread_emails',
     'get_email_details',
     'send_email',
     'create_draft',

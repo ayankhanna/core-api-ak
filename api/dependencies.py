@@ -74,4 +74,54 @@ async def get_optional_user_jwt(
     return parts[1]
 
 
+async def get_current_user_id(
+    authorization: Optional[str] = Header(None)
+) -> str:
+    """
+    Extract the user ID from the Supabase JWT.
+    
+    Args:
+        authorization: The Authorization header value (format: "Bearer <token>")
+        
+    Returns:
+        str: The user ID from the JWT token
+        
+    Raises:
+        HTTPException: If token is missing or invalid
+    """
+    if not authorization:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing authorization header"
+        )
+    
+    # Extract token from "Bearer <token>" format
+    parts = authorization.split()
+    if len(parts) != 2 or parts[0].lower() != "bearer":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authorization header format. Expected: Bearer <token>"
+        )
+    
+    token = parts[1]
+    
+    # Decode JWT to extract user ID
+    try:
+        payload = jwt.decode(token, options={"verify_signature": False})
+        user_id = payload.get("sub")
+        
+        if not user_id:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token: missing user ID"
+            )
+        
+        return user_id
+    except jwt.DecodeError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid JWT token"
+        )
+
+
 

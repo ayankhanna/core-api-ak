@@ -80,6 +80,21 @@ def send_email(
         
         logger.info(f"✅ Sent email {sent_id} for user {user_id}")
         
+        # Fetch the sent message to get the 'from' field
+        try:
+            detailed_message = service.users().messages().get(
+                userId='me',
+                id=sent_id,
+                format='metadata',
+                metadataHeaders=['From', 'To', 'Subject', 'Date']
+            ).execute()
+            
+            headers = {h['name'].lower(): h['value'] for h in detailed_message['payload']['headers']}
+            from_address = headers.get('from', '')
+        except Exception as e:
+            logger.warning(f"Could not fetch 'from' field for sent message: {e}")
+            from_address = ''
+        
         # Store in database
         to_addresses = [to] if to else []
         cc_addresses = cc if cc else []
@@ -94,7 +109,7 @@ def send_email(
             'external_id': sent_id,
             'thread_id': sent_thread_id,
             'subject': subject,
-            'from': '',  # Will be filled by Gmail
+            'from': from_address,
             'to': to_addresses,
             'cc': cc_addresses if cc_addresses else None,
             'bcc': bcc_addresses if bcc_addresses else None,
